@@ -6,6 +6,7 @@ import { initRunnerPanel }  from './ui/runner-panel';
 import { initDashboard }    from './ui/dashboard';
 import { initComparePanel } from './ui/compare';
 import { initSettingsPanel } from './ui/settings-panel';
+import { initPlaygroundPanel } from './ui/playground';
 
 // ── App state singleton ──────────────────────────────────────────────────
 const state: AppState = {
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'benchmark', label: '▶ Benchmark' },
   { id: 'dashboard', label: '📊 Dashboard' },
   { id: 'compare',   label: '⚖ Compare' },
+  { id: 'playground',label: '💬 Playgrounds' },
   { id: 'settings',  label: '⚙ Settings' },
 ] as const;
 
@@ -78,6 +80,7 @@ async function init() {
   initRunnerPanel( document.querySelector<HTMLElement>('#panel-benchmark')!,   state);
   initDashboard(   document.querySelector<HTMLElement>('#panel-dashboard')!,   state);
   initComparePanel(document.querySelector<HTMLElement>('#panel-compare')!,     state);
+  initPlaygroundPanel(document.querySelector<HTMLElement>('#panel-playground')!, state);
   initSettingsPanel(document.querySelector<HTMLElement>('#panel-settings')!,   state);
 }
 

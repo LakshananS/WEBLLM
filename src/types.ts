@@ -6,6 +6,7 @@ export type Dtype = 'fp32' | 'q4' | 'q4f16';
 export type RiskLevel = 'low' | 'medium' | 'high';
 export type DatasetCategory = 'short' | 'medium' | 'long' | 'very-long' | 'technical' | 'custom';
 export type ModelStatus = 'idle' | 'downloading' | 'ready' | 'error';
+export type EngineType = 'transformers' | 'webllm' | 'llamaweb';
 
 export interface ModelConfig {
   id: string;
@@ -22,6 +23,10 @@ export interface ModelConfig {
   /** Tier 2 only: formats a raw text into a model-specific prompt string */
   promptTemplate?: (text: string) => string;
   maxNewTokens: number;
+  supportedEngines?: EngineType[];
+  webllmConfig?: {
+    modelUrl?: string;
+  };
 }
 
 export interface BenchmarkDataset {
@@ -38,6 +43,8 @@ export interface RunMetrics {
   downloadBytes: number;
   memoryMB: number | null;
   webGpuUsed: boolean;
+  gpuTimeMs?: number;
+  dispatchOverheadMs?: number;
 }
 
 export interface QualityScore {
@@ -53,6 +60,7 @@ export interface BenchmarkRun {
   id: string;
   modelId: string;
   datasetId: string;
+  engine: EngineType;
   timestamp: number;
   summary: string;
   metrics: RunMetrics;

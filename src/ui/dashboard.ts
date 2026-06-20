@@ -117,6 +117,12 @@ export function initDashboard(container: HTMLElement, state: AppState): void {
         </div>
       </div>
 
+      <!-- Pareto Frontier Chart -->
+      <div class="pareto-wrap" style="margin-top: 2rem; background: var(--surface-1); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+        <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1.1rem;">Quality vs. Speed (Pareto Frontier)</h3>
+        ${buildParetoChart(results)}
+      </div>
+
       <!-- Comparison table -->
       <div class="table-wrap">
         <table class="dash-table">
@@ -171,6 +177,68 @@ export function initDashboard(container: HTMLElement, state: AppState): void {
     // Export
     container.querySelector('#exportJson')?.addEventListener('click', () => exportJson(results));
     container.querySelector('#exportCsv')?.addEventListener('click',  () => exportCsv(results));
+  }
+
+  function buildParetoChart(results: ModelBenchmarkResult[]): string {
+    if (results.length < 2) return `<p class="empty-hint">Need at least 2 models to display Pareto frontier.</p>`;
+
+    const width = 800;
+    const height = 300;
+    const pad = 40;
+
+    // Find min/max
+    const maxTime = Math.max(...results.map(r => r.avgInferenceMs)) || 1;
+    const minTime = Math.min(...results.map(r => r.avgInferenceMs)) || 0;
+    const maxQual = Math.max(...results.map(r => r.avgQuality.overall)) || 100;
+    const minQual = Math.min(...results.map(r => r.avgQuality.overall)) || 0;
+
+    // X: Inference Time (lower is better, let's put lower on the left)
+    // Y: Quality (higher is better, put higher on top)
+    const scaleX = (val: number) => pad + ((val - minTime) / (maxTime - minTime || 1)) * (width - pad * 2);
+    const scaleY = (val: number) => height - pad - ((val - minQual) / (maxQual - minQual || 1)) * (height - pad * 2);
+
+    // Identify Pareto frontier (fastest time for a given quality, or highest quality for a given time)
+    // Since lower time is better and higher quality is better:
+    // A point is dominated if another point has strictly lower time AND strictly higher quality.
+    // Wait, let's just sort by time ascending, then keep a running max of quality.
+    const sorted = [...results].sort((a, b) => a.avgInferenceMs - b.avgInferenceMs);
+    const paretoPts: ModelBenchmarkResult[] = [];
+    let maxQ = -1;
+    for (const r of sorted) {
+      if (r.avgQuality.overall >= maxQ) {
+        paretoPts.push(r);
+        maxQ = r.avgQuality.overall;
+      }
+    }
+
+    const paretoLine = paretoPts.map(r => `${scaleX(r.avgInferenceMs)},${scaleY(r.avgQuality.overall)}`).join(' ');
+
+    const points = results.map(r => {
+      const x = scaleX(r.avgInferenceMs);
+      const y = scaleY(r.avgQuality.overall);
+      const isPareto = paretoPts.includes(r);
+      const m = MODEL_REGISTRY.find(m => m.id === r.modelId);
+      return `
+        <circle cx="${x}" cy="${y}" r="${isPareto ? 6 : 4}" fill="${isPareto ? 'var(--accent)' : 'var(--text-3)'}" />
+        <text x="${x}" y="${y - 10}" font-size="10" fill="var(--text-2)" text-anchor="middle">${m?.name ?? r.modelId}</text>
+      `;
+    }).join('');
+
+    return `
+      <svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" style="overflow: visible;">
+        <!-- Axes -->
+        <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="var(--border)" />
+        <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="var(--border)" />
+        <text x="${width / 2}" y="${height - 5}" font-size="12" fill="var(--text-2)" text-anchor="middle">Inference Time (ms) →</text>
+        <text x="${10}" y="${height / 2}" font-size="12" fill="var(--text-2)" transform="rotate(-90 15,${height / 2})" text-anchor="middle">Quality Score →</text>
+        
+        <!-- Pareto Line -->
+        <polyline points="${paretoLine}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4" opacity="0.5" />
+        
+        <!-- Points -->
+        ${points}
+      </svg>
+    `;
   }
 
   function thBtn(key: SortKey, label: string): string {

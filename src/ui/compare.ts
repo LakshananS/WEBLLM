@@ -1,11 +1,13 @@
-import type { AppState, BenchmarkRun } from '../types';
+import type { AppState, BenchmarkRun, EngineType } from '../types';
 import { MODEL_REGISTRY } from '../models/registry';
 import { DATASETS } from '../data/benchmark-dataset';
 import { fmtMs } from '../benchmark/metrics';
 
 export function initComparePanel(container: HTMLElement, state: AppState): void {
   let modelA = '';
+  let engineA: EngineType = 'transformers';
   let modelB = '';
+  let engineB: EngineType = 'transformers';
   let datasetId = 'ds-medium';
 
   function render() {
@@ -24,11 +26,13 @@ export function initComparePanel(container: HTMLElement, state: AppState): void 
             <div class="ctrl-group">
               <label>Model A</label>
               <select id="selA">${modelOptions(benchmarkedModels, modelA)}</select>
+              <select id="selEngineA">${engineOptions(engineA)}</select>
             </div>
             <div class="vs-badge">VS</div>
             <div class="ctrl-group">
               <label>Model B</label>
               <select id="selB">${modelOptions(benchmarkedModels, modelB)}</select>
+              <select id="selEngineB">${engineOptions(engineB)}</select>
             </div>
             <div class="ctrl-group">
               <label>Dataset</label>
@@ -42,8 +46,14 @@ export function initComparePanel(container: HTMLElement, state: AppState): void 
     container.querySelector<HTMLSelectElement>('#selA')?.addEventListener('change', (e) => {
       modelA = (e.target as HTMLSelectElement).value; render();
     });
+    container.querySelector<HTMLSelectElement>('#selEngineA')?.addEventListener('change', (e) => {
+      engineA = (e.target as HTMLSelectElement).value as EngineType; render();
+    });
     container.querySelector<HTMLSelectElement>('#selB')?.addEventListener('change', (e) => {
       modelB = (e.target as HTMLSelectElement).value; render();
+    });
+    container.querySelector<HTMLSelectElement>('#selEngineB')?.addEventListener('change', (e) => {
+      engineB = (e.target as HTMLSelectElement).value as EngineType; render();
     });
     container.querySelector<HTMLSelectElement>('#selDs')?.addEventListener('change', (e) => {
       datasetId = (e.target as HTMLSelectElement).value; render();
@@ -61,14 +71,23 @@ export function initComparePanel(container: HTMLElement, state: AppState): void 
     }).join('');
   }
 
-  function findRun(modelId: string, dsId: string): BenchmarkRun | undefined {
-    return state.results.find((r) => r.modelId === modelId && r.datasetId === dsId);
+  function engineOptions(selected: EngineType): string {
+    const engines = [
+      { id: 'transformers', label: 'Transformers.js' },
+      { id: 'webllm', label: 'WebLLM' },
+      { id: 'llamaweb', label: 'LlamaWeb' }
+    ];
+    return engines.map((e) => `<option value="${e.id}" ${e.id === selected ? 'selected' : ''}>${e.label}</option>`).join('');
+  }
+
+  function findRun(modelId: string, dsId: string, engine: EngineType): BenchmarkRun | undefined {
+    return state.results.find((r) => r.modelId === modelId && r.datasetId === dsId && r.engine === engine);
   }
 
   function buildComparison(): string {
     if (!modelA || !modelB) return '';
-    const runA = findRun(modelA, datasetId);
-    const runB = findRun(modelB, datasetId);
+    const runA = findRun(modelA, datasetId, engineA);
+    const runB = findRun(modelB, datasetId, engineB);
     const cfgA = MODEL_REGISTRY.find((m) => m.id === modelA)!;
     const cfgB = MODEL_REGISTRY.find((m) => m.id === modelB)!;
     const dataset = DATASETS.find((d) => d.id === datasetId);
@@ -119,6 +138,7 @@ export function initComparePanel(container: HTMLElement, state: AppState): void 
             <span class="tier-chip tier-${cfgA.tier}">T${cfgA.tier}</span>
             <h3>${cfgA.name}</h3>
             <span class="col-badge">${cfgA.params}</span>
+            <span class="col-badge badge-engine">${engineA}</span>
           </div>
           ${metricsTable(runA)}
           ${runA?.summary ? `
@@ -133,6 +153,7 @@ export function initComparePanel(container: HTMLElement, state: AppState): void 
             <span class="tier-chip tier-${cfgB.tier}">T${cfgB.tier}</span>
             <h3>${cfgB.name}</h3>
             <span class="col-badge">${cfgB.params}</span>
+            <span class="col-badge badge-engine">${engineB}</span>
           </div>
           ${metricsTable(runB)}
           ${runB?.summary ? `

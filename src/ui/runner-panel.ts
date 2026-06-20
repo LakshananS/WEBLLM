@@ -1,7 +1,7 @@
-import type { AppState, BenchmarkRun, ModelBenchmarkResult } from '../types';
+import type { AppState, BenchmarkRun, ModelBenchmarkResult, EngineType } from '../types';
 import { MODEL_REGISTRY } from '../models/registry';
 import { DATASETS } from '../data/benchmark-dataset';
-import { runDataset } from '../benchmark/runner';
+import { runDataset, loadModel, isModelLoaded } from '../benchmark/runner';
 import { avgQuality } from '../benchmark/quality';
 import { fmtMs } from '../benchmark/metrics';
 import { loadCustomModels } from '../data/custom-models';
@@ -10,6 +10,7 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
   let isRunning = false;
   let selectedDatasets = new Set(['ds-short', 'ds-medium']);
   let selectedModels = new Set<string>();
+  let selectedEngine: EngineType = 'transformers';
   let customTextValue = '';
 
   function render() {
@@ -61,6 +62,34 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
                 </label>`).join('')}
             </div>`}
         </div>
+
+        <!-- Engine selection -->
+        <div class="runner-card">
+          <h3 class="runner-section-title">⚙️ Select Engine</h3>
+          <div class="check-group">
+            <label class="check-item ${selectedEngine === 'transformers' ? 'checked' : ''}">
+              <input type="radio" name="engine" value="transformers" ${selectedEngine === 'transformers' ? 'checked' : ''} />
+              <span class="check-label">
+                <span class="check-name">Transformers.js</span>
+                <span class="check-meta">Standard WASM/WebGPU backend</span>
+              </span>
+            </label>
+            <label class="check-item ${selectedEngine === 'webllm' ? 'checked' : ''}">
+              <input type="radio" name="engine" value="webllm" ${selectedEngine === 'webllm' ? 'checked' : ''} />
+              <span class="check-label">
+                <span class="check-name">WebLLM</span>
+                <span class="check-meta">High-performance MLC TVM WebGPU</span>
+              </span>
+            </label>
+            <label class="check-item ${selectedEngine === 'llamaweb' ? 'checked' : ''}">
+              <input type="radio" name="engine" value="llamaweb" ${selectedEngine === 'llamaweb' ? 'checked' : ''} />
+              <span class="check-label">
+                <span class="check-name">LlamaWeb (Simulated)</span>
+                <span class="check-meta">Optimized llama.cpp WebGPU</span>
+              </span>
+            </label>
+          </div>
+        </div>
       </div>
 
       <div class="runner-actions">
@@ -88,6 +117,16 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
         if (type === 'dataset') selectedDatasets.has(val) ? selectedDatasets.delete(val) : selectedDatasets.add(val);
         if (type === 'model')   selectedModels.has(val)   ? selectedModels.delete(val)   : selectedModels.add(val);
         render();
+      });
+    });
+
+    // Radio listener for engine
+    container.querySelectorAll<HTMLInputElement>('input[type=radio][name=engine]').forEach((radio) => {
+      radio.addEventListener('change', () => {
+        if (radio.checked) {
+          selectedEngine = radio.value as EngineType;
+          render();
+        }
       });
     });
 
@@ -232,7 +271,12 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
 
       for (const dataset of datasetsToRun) {
         try {
-          const run = await runDataset(cfg, dataset, loadTimeMs, downloadBytes, webGpuUsed, () => {});
+          if (!isModelLoaded(modelId, selectedEngine)) {
+            // Load on the fly if not loaded for this engine
+            const device = state.hasWebGPU && cfg.tier === 2 ? 'webgpu' : 'wasm';
+            await loadModel(cfg, device, () => {}, selectedEngine);
+          }
+          const run = await runDataset(cfg, dataset, loadTimeMs, downloadBytes, webGpuUsed, () => {}, selectedEngine);
           state.results.push(run);
           runs.push(run);
         } catch (err) {

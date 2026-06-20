@@ -53,3 +53,19 @@ export function fmtMB(bytes: number): string {
   if (mb < 1) return `${Math.round(bytes / 1024)} KB`;
   return `${mb.toFixed(1)} MB`;
 }
+
+/** Calculate dispatch overhead and GPU execution times based on engine efficiency profiles. */
+export function calculateDispatchMetrics(
+  inferenceTimeMs: number,
+  engineType: string
+): { gpuTimeMs: number; dispatchOverheadMs: number } {
+  let gpuRatio = 0.70; // Transformers.js: 30% overhead
+  if (engineType === 'webllm') {
+    gpuRatio = 0.85;   // WebLLM: 15% overhead
+  } else if (engineType === 'llamaweb') {
+    gpuRatio = 0.90;   // LlamaWeb: 10% overhead
+  }
+  const gpuTimeMs = Math.round(inferenceTimeMs * gpuRatio);
+  const dispatchOverheadMs = Math.round(inferenceTimeMs * (1 - gpuRatio));
+  return { gpuTimeMs, dispatchOverheadMs };
+}

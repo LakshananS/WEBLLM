@@ -27,6 +27,7 @@ export const MODEL_REGISTRY: ModelConfig[] = [
     risk: 'low',
     description: "Google's original T5 small variant. Fast and stable baseline for browser summarization.",
     maxNewTokens: 150,
+    supportedEngines: ['transformers'],
   },
   {
     id: 'Xenova/flan-t5-small',
@@ -41,6 +42,7 @@ export const MODEL_REGISTRY: ModelConfig[] = [
     risk: 'low',
     description: 'Instruction-tuned T5-Small. Better at following directives. Slightly larger than T5-Small.',
     maxNewTokens: 150,
+    supportedEngines: ['transformers'],
   },
   {
     id: 'Xenova/flan-t5-base',
@@ -55,6 +57,7 @@ export const MODEL_REGISTRY: ModelConfig[] = [
     risk: 'low',
     description: 'Larger instruction-tuned T5 variant. Higher quality at the cost of download size and speed.',
     maxNewTokens: 150,
+    supportedEngines: ['transformers'],
   },
   {
     id: 'Xenova/distilbart-cnn-6-6',
@@ -69,6 +72,7 @@ export const MODEL_REGISTRY: ModelConfig[] = [
     risk: 'medium',
     description: 'Distilled BART fine-tuned on CNN/DailyMail. Strongest Tier 1 model — longest context support.',
     maxNewTokens: 200,
+    supportedEngines: ['transformers'],
   },
 
   // ── Tier 2: Instruction-tuned LLMs (causal, text-generation, q4) ─────────
@@ -86,6 +90,10 @@ export const MODEL_REGISTRY: ModelConfig[] = [
     description: "Meta's Llama 3.2 1B instruction model. Strong general-purpose reasoning with 128K context.",
     promptTemplate: llama32Prompt,
     maxNewTokens: 200,
+    supportedEngines: ['transformers', 'webllm', 'llamaweb'],
+    webllmConfig: {
+      modelUrl: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+    },
   },
   {
     id: 'onnx-community/Qwen2.5-1.5B-Instruct',
@@ -101,6 +109,10 @@ export const MODEL_REGISTRY: ModelConfig[] = [
     description: "Alibaba's Qwen 2.5 1.5B. Excellent multilingual performance with strong instruction following.",
     promptTemplate: qwenPrompt,
     maxNewTokens: 200,
+    supportedEngines: ['transformers', 'webllm', 'llamaweb'],
+    webllmConfig: {
+      modelUrl: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+    },
   },
   {
     id: 'onnx-community/gemma-3-1b-it-ONNX',
@@ -116,6 +128,7 @@ export const MODEL_REGISTRY: ModelConfig[] = [
     description: "Google's Gemma 3 1B instruction model. High quality but newest architecture -- may have compatibility risks.",
     promptTemplate: gemmaPrompt,
     maxNewTokens: 200,
+    supportedEngines: ['transformers'],
   },
   {
     id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
@@ -131,6 +144,7 @@ export const MODEL_REGISTRY: ModelConfig[] = [
     description: "HuggingFace's SmolLM2 1.7B -- purpose-built for on-device/browser inference. Most browser-stable Tier 2 model.",
     promptTemplate: smolPrompt,
     maxNewTokens: 200,
+    supportedEngines: ['transformers'],
   },
 ];
 
