@@ -130,6 +130,7 @@ export function initDashboard(container: HTMLElement, state: AppState): void {
             <tr>
               <th class="th-rank">#</th>
               ${thBtn('name',           'Model')}
+              <th>Engine</th>
               <th>Tier</th>
               <th>Params</th>
               <th>Context</th>
@@ -149,6 +150,7 @@ export function initDashboard(container: HTMLElement, state: AppState): void {
                 <tr>
                   <td class="rank-cell"><span class="rank-badge rank-${i + 1}">${i + 1}</span></td>
                   <td class="model-cell">${cfg.name}<span class="gpu-chip">${res.webGpuUsed ? ' GPU' : ''}</span></td>
+                  <td><span class="badge-engine">${res.runs[0]?.engine ?? 'Unknown'}</span></td>
                   <td><span class="tier-chip tier-${cfg.tier}">T${cfg.tier}</span></td>
                   <td>${cfg.params}</td>
                   <td class="ctx-cell">${cfg.contextWindow}</td>

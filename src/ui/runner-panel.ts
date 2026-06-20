@@ -11,7 +11,6 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
   let selectedDatasets = new Set(['ds-short', 'ds-medium']);
   let selectedModels = new Set<string>();
   let selectedEngine: EngineType = 'transformers';
-  let customTextValue = '';
 
   function render() {
     const allModels = [...MODEL_REGISTRY, ...loadCustomModels()];
@@ -23,7 +22,7 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
         <p class="panel-sub">Select datasets and models to benchmark. Use the Models tab to download models first.</p>
       </div>
 
-      <div class="runner-grid">
+      <div class="runner-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
         <!-- Dataset selection -->
         <div class="runner-card">
           <h3 class="runner-section-title" style="display: flex; justify-content: space-between; align-items: center;">
@@ -39,8 +38,7 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
                   <span class="check-meta">${ds.category} · ${ds.wordCount} words</span>
                 </span>
               </label>`).join('')}
-          <h3 class="runner-section-title" style="margin-top: 1.5rem;">✏️ Custom Text</h3>
-          <textarea id="customTextInput" class="form-input" rows="3" placeholder="Paste custom text to benchmark...">${customTextValue}</textarea>
+          </div>
         </div>
 
         <!-- Model selection -->
@@ -64,7 +62,7 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
         </div>
 
         <!-- Engine selection -->
-        <div class="runner-card">
+        <div class="runner-card" style="grid-column: 1 / -1;">
           <h3 class="runner-section-title">⚙️ Select Engine</h3>
           <div class="check-group">
             <label class="check-item ${selectedEngine === 'transformers' ? 'checked' : ''}">
@@ -92,12 +90,12 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
         </div>
       </div>
 
-      <div class="runner-actions">
-        <button id="runBtn" class="btn-run" ${isRunning || selectedModels.size === 0 || (selectedDatasets.size === 0 && !customTextValue.trim()) ? 'disabled' : ''}>
+      <div class="runner-actions" style="margin-bottom: 2rem;">
+        <button id="runBtn" class="btn-run" ${isRunning || selectedModels.size === 0 || selectedDatasets.size === 0 ? 'disabled' : ''}>
           ${isRunning ? '<span class="spinner-sm"></span> Running…' : '▶ Run Benchmark'}
         </button>
         <span class="run-hint" id="runHint">
-          ${selectedModels.size} model(s) × ${selectedDatasets.size + (customTextValue.trim() ? 1 : 0)} dataset(s) = ${selectedModels.size * (selectedDatasets.size + (customTextValue.trim() ? 1 : 0))} run(s)
+          ${selectedModels.size} model(s) × ${selectedDatasets.size} dataset(s) = ${selectedModels.size * selectedDatasets.size} run(s)
         </span>
         ${state.results.length > 0 && !isRunning ? `
           <button id="dlCsvBtn" class="btn-export" style="margin-left: auto;">⬇ Download CSV</button>
@@ -130,17 +128,15 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
       });
     });
 
-    // Custom text listener
-    container.querySelector('#customTextInput')?.addEventListener('input', (e) => {
-      customTextValue = (e.target as HTMLTextAreaElement).value;
+    // Dataset/Model size hint updater
+    const updateHint = () => {
       const btn = container.querySelector('#runBtn') as HTMLButtonElement | null;
       const hint = container.querySelector('#runHint');
-      const hasText = !!customTextValue.trim();
-      const dsCount = selectedDatasets.size + (hasText ? 1 : 0);
+      const dsCount = selectedDatasets.size;
       const mCount = selectedModels.size;
       if (btn) btn.disabled = isRunning || mCount === 0 || dsCount === 0;
       if (hint) hint.textContent = `${mCount} model(s) × ${dsCount} dataset(s) = ${mCount * dsCount} run(s)`;
-    });
+    };
 
     // Select All buttons
     container.querySelector('#selectAllDs')?.addEventListener('click', () => {
@@ -208,7 +204,7 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
       <div class="live-scroll">
         <table class="results-table">
           <thead><tr>
-            <th>Model</th><th>Dataset</th><th>Inf. Time</th>
+            <th>Engine</th><th>Model</th><th>Dataset</th><th>Inf. Time</th>
             <th>Quality</th><th>Coverage</th><th>Coherence</th><th>Status</th>
           </tr></thead>
           <tbody>
@@ -219,6 +215,7 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
               const q     = r.quality;
               return `
                 <tr class="${r.error ? 'row-error' : 'row-ok'}">
+                  <td><span class="badge-engine">${r.engine}</span></td>
                   <td>${model?.name ?? r.modelId}</td>
                   <td>${ds?.name ?? r.datasetId}</td>
                   <td>${fmtMs(r.metrics.inferenceTimeMs)}</td>
@@ -250,15 +247,6 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
     const allModels = [...MODEL_REGISTRY, ...loadCustomModels()];
     
     let datasetsToRun = datasetIds.map(id => DATASETS.find(d => d.id === id)!);
-    if (customTextValue.trim()) {
-      datasetsToRun.push({
-        id: 'ds-custom',
-        name: 'Custom Input',
-        category: 'custom',
-        wordCount: customTextValue.trim().split(/\s+/).length,
-        text: customTextValue.trim()
-      });
-    }
 
     for (const modelId of modelIds) {
       const cfg = allModels.find((m) => m.id === modelId)!;
@@ -270,6 +258,10 @@ export function initRunnerPanel(container: HTMLElement, state: AppState): void {
       const runs: BenchmarkRun[] = [];
 
       for (const dataset of datasetsToRun) {
+        // Prevent running the same combination again
+        const alreadyRun = state.results.some(r => r.modelId === modelId && r.datasetId === dataset.id && r.engine === selectedEngine && !r.error);
+        if (alreadyRun) continue;
+
         try {
           if (!isModelLoaded(modelId, selectedEngine)) {
             // Load on the fly if not loaded for this engine

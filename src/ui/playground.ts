@@ -9,6 +9,10 @@ export function initPlaygroundPanel(container: HTMLElement, state: AppState): vo
   let engineB: EngineType = 'transformers';
   let promptText = 'Explain quantum computing in simple terms.';
   let isGenerating = false;
+  let textA = 'Waiting for input...';
+  let textB = 'Waiting for input...';
+  let metricsAStr = 'Ready';
+  let metricsBStr = 'Ready';
 
   function render() {
     const loadedModels = [...state.loadedModels];
@@ -43,13 +47,13 @@ export function initPlaygroundPanel(container: HTMLElement, state: AppState): vo
       <div class="playground-cols" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
         <div class="playground-col col-a" style="background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
           <h3 style="margin: 0; font-size: 1.1rem;">Response A</h3>
-          <div class="pg-metrics" id="metricsA" style="font-family: monospace; font-size: 0.85rem; color: var(--text-2); background: var(--surface-2); padding: 0.5rem; border-radius: 4px;">Ready</div>
-          <div class="pg-output" id="outputA" style="white-space: pre-wrap; line-height: 1.6; color: var(--text-1); flex-grow: 1;">Waiting for input...</div>
+          <div class="pg-metrics" id="metricsA" style="font-family: monospace; font-size: 0.85rem; color: var(--text-2); background: var(--surface-2); padding: 0.5rem; border-radius: 4px;">${metricsAStr}</div>
+          <div class="pg-output" id="outputA" style="white-space: pre-wrap; line-height: 1.6; color: var(--text-1); flex-grow: 1;">${textA}</div>
         </div>
         <div class="playground-col col-b" style="background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
           <h3 style="margin: 0; font-size: 1.1rem;">Response B</h3>
-          <div class="pg-metrics" id="metricsB" style="font-family: monospace; font-size: 0.85rem; color: var(--text-2); background: var(--surface-2); padding: 0.5rem; border-radius: 4px;">Ready</div>
-          <div class="pg-output" id="outputB" style="white-space: pre-wrap; line-height: 1.6; color: var(--text-1); flex-grow: 1;">Waiting for input...</div>
+          <div class="pg-metrics" id="metricsB" style="font-family: monospace; font-size: 0.85rem; color: var(--text-2); background: var(--surface-2); padding: 0.5rem; border-radius: 4px;">${metricsBStr}</div>
+          <div class="pg-output" id="outputB" style="white-space: pre-wrap; line-height: 1.6; color: var(--text-1); flex-grow: 1;">${textB}</div>
         </div>
       </div>
     `;
@@ -96,18 +100,13 @@ export function initPlaygroundPanel(container: HTMLElement, state: AppState): vo
   async function runPlayground() {
     if (isGenerating || !modelA || !modelB || !promptText.trim()) return;
     
+    textA = '';
+    textB = '';
+    metricsAStr = 'Starting...';
+    metricsBStr = 'Starting...';
+
     isGenerating = true;
     render();
-
-    const outputA = container.querySelector('#outputA')!;
-    const outputB = container.querySelector('#outputB')!;
-    const metricsA = container.querySelector('#metricsA')!;
-    const metricsB = container.querySelector('#metricsB')!;
-
-    outputA.innerHTML = '';
-    outputB.innerHTML = '';
-    metricsA.innerHTML = 'Starting...';
-    metricsB.innerHTML = 'Starting...';
 
     const cfgA = MODEL_REGISTRY.find(m => m.id === modelA)!;
     const cfgB = MODEL_REGISTRY.find(m => m.id === modelB)!;
@@ -122,8 +121,8 @@ export function initPlaygroundPanel(container: HTMLElement, state: AppState): vo
       }
     } catch (e) {
       console.error(e);
-      metricsA.innerHTML = 'Error loading model';
-      metricsB.innerHTML = 'Error loading model';
+      metricsAStr = 'Error loading model';
+      metricsBStr = 'Error loading model';
       isGenerating = false;
       render();
       return;
@@ -136,26 +135,38 @@ export function initPlaygroundPanel(container: HTMLElement, state: AppState): vo
     const runStreamA = async () => {
       try {
         await streamChat(cfgA, promptText, engineA, (chunk) => {
-          outputA.innerHTML += chunk;
+          textA += chunk;
           tokensA++;
           const elapsed = (performance.now() - startA) / 1000;
-          metricsA.innerHTML = `Speed: ${(tokensA / elapsed).toFixed(1)} tok/s | Tokens: ${tokensA}`;
+          metricsAStr = `Speed: ${(tokensA / elapsed).toFixed(1)} tok/s | Tokens: ${tokensA}`;
+          const outEl = container.querySelector('#outputA');
+          if (outEl) outEl.innerHTML = textA;
+          const metEl = container.querySelector('#metricsA');
+          if (metEl) metEl.innerHTML = metricsAStr;
         });
       } catch (e) {
-        outputA.innerHTML += `<br><span style="color:red">Error: ${e}</span>`;
+        textA += `<br><span style="color:red">Error: ${e}</span>`;
+        const outEl = container.querySelector('#outputA');
+        if (outEl) outEl.innerHTML = textA;
       }
     };
 
     const runStreamB = async () => {
       try {
         await streamChat(cfgB, promptText, engineB, (chunk) => {
-          outputB.innerHTML += chunk;
+          textB += chunk;
           tokensB++;
           const elapsed = (performance.now() - startB) / 1000;
-          metricsB.innerHTML = `Speed: ${(tokensB / elapsed).toFixed(1)} tok/s | Tokens: ${tokensB}`;
+          metricsBStr = `Speed: ${(tokensB / elapsed).toFixed(1)} tok/s | Tokens: ${tokensB}`;
+          const outEl = container.querySelector('#outputB');
+          if (outEl) outEl.innerHTML = textB;
+          const metEl = container.querySelector('#metricsB');
+          if (metEl) metEl.innerHTML = metricsBStr;
         });
       } catch (e) {
-        outputB.innerHTML += `<br><span style="color:red">Error: ${e}</span>`;
+        textB += `<br><span style="color:red">Error: ${e}</span>`;
+        const outEl = container.querySelector('#outputB');
+        if (outEl) outEl.innerHTML = textB;
       }
     };
 
